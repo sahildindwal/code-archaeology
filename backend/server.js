@@ -143,7 +143,7 @@ app.post('/api/chat', async (req, res) => {
 });
 
 // 3. Start the Server
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Code Archaeology backend running at http://localhost:${PORT}`);
   console.log(`📊 Graph endpoint: http://localhost:${PORT}/api/graph`);
 });
