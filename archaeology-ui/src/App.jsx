@@ -10,6 +10,10 @@ import {
 import '@xyflow/react/dist/style.css';
 import dagre from 'dagre';
 import ReactMarkdown from 'react-markdown';
+import dotenv from 'dotenv';
+dotenv.config();
+
+const API_URL = process.env.API_URL || 'http://localhost:3001';
 
 // ---------------------------------------------------------
 // DAGRE LAYOUT
@@ -117,7 +121,7 @@ export default function App() {
     }
 
     // Send the filtered codebase to the backend workspace
-    fetch('http://localhost:3001/api/upload', {
+    fetch(`${API_URL}/api/upload`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ files: fileDataArray })
