@@ -11,7 +11,7 @@ import '@xyflow/react/dist/style.css';
 import dagre from 'dagre';
 import ReactMarkdown from 'react-markdown';
 
-const API_URL = process.env.API_URL || 'http://localhost:3001';
+const API_URL = import.meta.env.API_URL;
 
 // ---------------------------------------------------------
 // DAGRE LAYOUT
@@ -285,9 +285,7 @@ export default function App() {
       setMessages([]);
 
       fetch(
-        `http://localhost:3001/api/file?path=${encodeURIComponent(
-          node.id
-        )}`
+        `${API_URL}/api/file?path=${encodeURIComponent(node.id)}`
       )
         .then((res) => res.json())
         .then((data) => {
@@ -667,7 +665,7 @@ export default function App() {
                       setIsChatLoading(true);
 
                       // 3. Ask Gemini
-                      fetch('http://localhost:3001/api/chat', {
+                      fetch(`${API_URL}/api/chat`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ question, fileName: selectedFile, fileCode: fileContent }),
