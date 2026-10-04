@@ -10,8 +10,6 @@ import {
 import '@xyflow/react/dist/style.css';
 import dagre from 'dagre';
 import ReactMarkdown from 'react-markdown';
-import dotenv from 'dotenv';
-dotenv.config();
 
 const API_URL = process.env.API_URL || 'http://localhost:3001';
 
