@@ -7,7 +7,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import path from 'path';
 
 const app = express();
-const PORT = 3001; // React usually uses 3000 or 5173 (Vite), so we use 3001 for the backend
+const PORT = process.env.PORT || 3001; // React usually uses 3000 or 5173 (Vite), so we use 3001 for the backend
 
 // 1. Middleware
 // Allow requests from any frontend port during development
