@@ -1,0 +1,22 @@
+{
+  "nodes": [
+    {
+      "id": "src\\app.js",
+      "label": "app.js",
+      "type": "file"
+    },
+    {
+      "id": "src\\utils.js",
+      "label": "utils.js",
+      "type": "file"
+    }
+  ],
+  "edges": [
+    {
+      "id": "src\\app.js->./utils",
+      "source": "src\\app.js",
+      "target": "./utils",
+      "relation": "imports"
+    }
+  ]
+}
