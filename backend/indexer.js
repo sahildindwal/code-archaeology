@@ -41,7 +41,12 @@ export function walkDirectory(dir, fileList = []) {
       if (file !== 'node_modules' && file !== '.git') {
         walkDirectory(fullPath, fileList);
       }
-    } else if (fullPath.endsWith('.js') || fullPath.endsWith('.ts')) {
+    } else if (
+    fullPath.endsWith('.js') ||
+    fullPath.endsWith('.jsx') ||
+    fullPath.endsWith('.ts') ||
+    fullPath.endsWith('.tsx')
+  ) {
       fileList.push(fullPath);
     }
   });
