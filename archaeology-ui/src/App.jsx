@@ -11,7 +11,7 @@ import '@xyflow/react/dist/style.css';
 import dagre from 'dagre';
 import ReactMarkdown from 'react-markdown';
 
-const API_URL = import.meta.env.API_URL;
+const API_URL = import.meta.env.VITE_API_URL;
 
 // ---------------------------------------------------------
 // DAGRE LAYOUT

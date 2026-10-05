@@ -22,7 +22,16 @@ export function resolveImportPath(currentFilePath, importString) {
   }
 
   // Otherwise, try common JavaScript/TypeScript extensions
-  const extensions = ['.js', '.ts', '/index.js', '/index.ts'];
+const extensions = [
+    '.js',
+    '.jsx',
+    '.ts',
+    '.tsx',
+    '/index.js',
+    '/index.jsx',
+    '/index.ts',
+    '/index.tsx'
+];
   for (const ext of extensions) {
     const pathWithExt = `${absolutePath}${ext}`;
     if (fs.existsSync(pathWithExt)) {
