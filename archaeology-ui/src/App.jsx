@@ -339,6 +339,62 @@ export default function App() {
   }, [rawNodes, rawEdges]);
 
   // ---------------------------------------------------------
+  // CHANGE IMPACT ANALYSIS (SELECTED FILE)
+  // ---------------------------------------------------------
+  const selectedFileImpact = useMemo(() => {
+    if (!selectedFile || !rawEdges.length || !rawNodes.length) return null;
+
+    // Find the actual ID of the selected file
+    const targetNode = rawNodes.find(n => n.data.label === selectedFile || n.id === selectedFile);
+    if (!targetNode) return null;
+
+    const directDependents = new Set();
+    const allDependents = new Set();
+    
+    // 1. Find direct dependents (Who imports me directly?)
+    rawEdges.forEach(e => {
+      if (e.target === targetNode.id) {
+        directDependents.add(e.source);
+        allDependents.add(e.source);
+      }
+    });
+
+    // 2. Find indirect dependents (BFS Traversal)
+    let queue = Array.from(directDependents);
+    while(queue.length > 0) {
+      const current = queue.shift();
+      rawEdges.forEach(e => {
+        if (e.target === current && !allDependents.has(e.source)) {
+          allDependents.add(e.source);
+          queue.push(e.source);
+        }
+      });
+    }
+
+    // 3. Calculate Risk Score
+    let risk = 'LOW';
+    let riskColor = '#48bb78'; // Green
+    if (allDependents.size > 15) { risk = 'CRITICAL'; riskColor = '#e53e3e'; }
+    else if (allDependents.size > 5) { risk = 'HIGH'; riskColor = '#dd6b20'; }
+    else if (allDependents.size > 0) { risk = 'MEDIUM'; riskColor = '#d69e2e'; }
+
+    // Map IDs back to readable filenames
+    const affectedFiles = Array.from(allDependents).map(id => {
+      const n = rawNodes.find(node => node.id === id);
+      return n ? n.data.label : id;
+    });
+
+    return {
+      directCount: directDependents.size,
+      totalCount: allDependents.size,
+      risk,
+      riskColor,
+      sampleFiles: affectedFiles.slice(0, 4), // Preview the first 4 affected files
+      hasMore: affectedFiles.length > 4
+    };
+  }, [selectedFile, rawEdges, rawNodes]);
+
+  // ---------------------------------------------------------
   // STYLE NODES
   // ---------------------------------------------------------
 
@@ -638,6 +694,49 @@ export default function App() {
                 ✖
               </button>
             </div>
+
+            {/* ---------------------------------------------
+                CHANGE IMPACT ANALYSIS
+                --------------------------------------------- */}
+            {selectedFileImpact && (
+              <div style={{ padding: '15px', borderBottom: '1px solid #4a5568', background: '#2d3748', flexShrink: 0 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
+                  <h3 style={{ margin: 0, fontSize: '13px', color: '#a0aec0', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                    Blast Radius
+                  </h3>
+                  <span style={{ background: '#1a202c', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', color: selectedFileImpact.riskColor, border: `1px solid ${selectedFileImpact.riskColor}` }}>
+                    {selectedFileImpact.risk} RISK
+                  </span>
+                </div>
+                
+                <div style={{ display: 'flex', gap: '15px', marginBottom: '12px' }}>
+                  <div style={{ background: '#1a202c', padding: '8px', borderRadius: '6px', flex: 1, textAlign: 'center' }}>
+                    <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#fff' }}>{selectedFileImpact.directCount}</div>
+                    <div style={{ fontSize: '11px', color: '#a0aec0' }}>Direct</div>
+                  </div>
+                  <div style={{ background: '#1a202c', padding: '8px', borderRadius: '6px', flex: 1, textAlign: 'center' }}>
+                    <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#fff' }}>{selectedFileImpact.totalCount}</div>
+                    <div style={{ fontSize: '11px', color: '#a0aec0' }}>Total Affected</div>
+                  </div>
+                </div>
+
+                {selectedFileImpact.totalCount > 0 && (
+                  <div>
+                    <div style={{ fontSize: '12px', color: '#a0aec0', marginBottom: '4px' }}>Potentially affected downstream:</div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                      {selectedFileImpact.sampleFiles.map((file, i) => (
+                        <span key={i} style={{ background: '#1a202c', color: '#e2e8f0', padding: '2px 6px', borderRadius: '4px', fontSize: '11px', border: '1px solid #4a5568' }}>
+                          {file}
+                        </span>
+                      ))}
+                      {selectedFileImpact.hasMore && (
+                        <span style={{ color: '#a0aec0', fontSize: '11px', alignSelf: 'center' }}>+{selectedFileImpact.totalCount - 4} more</span>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* ---------------------------------------------
                 CODE VIEWER
