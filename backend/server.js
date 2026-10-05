@@ -72,9 +72,9 @@ app.post('/api/upload', (req, res) => {
   }
 });
 
-// NEW: GitHub Repository Import Endpoint
+// NEW: GitHub Repository Import Endpoint (With Branch Support)
 app.post('/api/github', async (req, res) => {
-  const { repoUrl } = req.body;
+  const { repoUrl, branch } = req.body;
   if (!repoUrl || !repoUrl.startsWith('https://github.com/')) {
     return res.status(400).json({ error: "Please provide a valid public GitHub URL." });
   }
@@ -83,23 +83,25 @@ app.post('/api/github', async (req, res) => {
   const targetDir = './workspace/repo';
 
   try {
-    // 1. Clear out the old workspace completely
     if (fs.existsSync(workspaceRoot)) {
       fs.rmSync(workspaceRoot, { recursive: true, force: true });
     }
     fs.mkdirSync(workspaceRoot, { recursive: true });
 
-    // 2. Clone the repository using Git
-    console.log(`Cloning repository: ${repoUrl}`);
-    await execPromise(`git clone ${repoUrl} ${targetDir}`);
+    // Use branch flag if provided, otherwise default clone
+    const cloneCmd = branch 
+      ? `git clone --branch ${branch} --single-branch ${repoUrl} ${targetDir}`
+      : `git clone ${repoUrl} ${targetDir}`;
 
-    // 3. Generate the graph from the newly cloned repo
+    console.log(`Executing: ${cloneCmd}`);
+    await execPromise(cloneCmd);
+
     const graphData = generateGraph(targetDir);
     res.json(graphData);
 
   } catch (error) {
-    console.error("Error cloning or analyzing GitHub repo:", error);
-    res.status(500).json({ error: "Failed to process GitHub repository. Ensure the repo is public and not too massive." });
+    console.error("Error cloning GitHub repo:", error);
+    res.status(500).json({ error: "Failed to process GitHub repository. Ensure the repo is public and the branch exists." });
   }
 });
 

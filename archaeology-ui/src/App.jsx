@@ -10,6 +10,7 @@ import {
 import '@xyflow/react/dist/style.css';
 import dagre from 'dagre';
 import ReactMarkdown from 'react-markdown';
+import TopNavbar from './components/TopNavbar.jsx';
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -69,8 +70,6 @@ export default function App() {
   // Global Chat State
   const [globalMessages, setGlobalMessages] = useState([]);
   const [isGlobalChatLoading, setIsGlobalChatLoading] = useState(false);
-  // GitHub URL state
-  const [githubUrl, setGithubUrl] = useState('');
 
   const [hoveredNodeId, setHoveredNodeId] = useState(null);
 
@@ -201,7 +200,7 @@ export default function App() {
   };
 
   const handleGithubFetch = () => {
-    if (!githubUrl.trim()) return;
+    if (!url || !url.trim()) return;
 
     setLoading(true);
     setHoveredNodeId(null);
@@ -212,7 +211,7 @@ export default function App() {
     fetch(`${API_URL}/api/github`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ repoUrl: githubUrl })
+      body: JSON.stringify({ repoUrl: url, branch: branch || '' })
     })
       .then(res => res.json())
       .then(data => {
@@ -609,62 +608,18 @@ export default function App() {
         color: 'white',
       }}
     >
+
       {/* =====================================================
           TOP NAVBAR
           ===================================================== */}
-      <div style={{ padding: '15px', background: '#2d3748', borderBottom: '1px solid #4a5568', display: 'flex', gap: '15px', alignItems: 'center', flexShrink: 0 }}>
-        <h1 style={{ margin: 0, fontSize: '18px', marginRight: '10px', color: '#63b3ed', whiteSpace: 'nowrap' }}>
-          Code Archaeology
-        </h1>
-
-        {/* GitHub Import UI */}
-        <div style={{ display: 'flex', gap: '5px', flexGrow: 1, maxWidth: '500px' }}>
-          <input
-            type="text"
-            placeholder="Paste public GitHub URL (e.g., https://github.com/user/repo)"
-            value={githubUrl}
-            onChange={(e) => setGithubUrl(e.target.value)}
-            disabled={loading}
-            style={{ flexGrow: 1, padding: '8px 12px', borderRadius: '4px', border: '1px solid #4a5568', background: '#1a202c', color: 'white', outline: 'none' }}
-          />
-          <button
-            onClick={handleGithubFetch}
-            disabled={loading || !githubUrl}
-            style={{ padding: '8px 16px', background: '#48bb78', color: 'white', border: 'none', borderRadius: '4px', cursor: (loading || !githubUrl) ? 'not-allowed' : 'pointer', fontWeight: 'bold', opacity: (loading || !githubUrl) ? 0.6 : 1 }}
-          >
-            Analyze Repo
-          </button>
-        </div>
-
-        <div style={{ color: '#a0aec0', fontSize: '14px', fontWeight: 'bold' }}>OR</div>
-
-        {/* Local Folder Upload UI */}
-        <label style={{
-          padding: '8px 16px', background: '#3182ce', color: 'white', 
-          border: 'none', borderRadius: '4px', cursor: loading ? 'not-allowed' : 'pointer', fontWeight: 'bold', opacity: loading ? 0.6 : 1
-        }}>
-          {loading ? 'Analyzing...' : 'Upload Local Folder'}
-          <input 
-            type="file" 
-            webkitdirectory="true" 
-            directory="true" 
-            multiple 
-            onChange={handleFileUpload} 
-            disabled={loading}
-            style={{ display: 'none' }} 
-          />
-        </label>
-
-        {/* NEW: Sidebar Toggle Button */}
-        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center' }}>
-          <button
-            onClick={() => setIsSidebarOpen(prev => !prev)}
-            style={{ padding: '8px 12px', background: isSidebarOpen ? '#4a5568' : '#3182ce', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', transition: 'background 0.2s' }}
-          >
-            {isSidebarOpen ? 'Collapse Panel ➡' : '⬅ Expand Panel'}
-          </button>
-        </div>
-      </div>
+      <TopNavbar 
+        loading={loading}
+        onLocalUpload={handleFileUpload}
+        onGithubAnalyze={handleGithubFetch}
+        isSidebarOpen={isSidebarOpen}
+        setIsSidebarOpen={setIsSidebarOpen}
+      />
+      
 
       {/* =====================================================
           MAIN CONTENT
