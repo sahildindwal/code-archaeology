@@ -197,33 +197,69 @@ export default function App() {
     return dependents;
   }, [hoveredNodeId, rawEdges]);
 
-  // ---------------------------------------------------------
-  // CODEBASE ARCHITECTURE INSIGHTS
+// ---------------------------------------------------------
+  // CODEBASE ARCHITECTURE INSIGHTS & CYCLE DETECTION
   // ---------------------------------------------------------
   const codebaseInsights = useMemo(() => {
     if (!rawNodes.length || !rawEdges.length) return null;
 
     const metrics = {};
+    const adjList = {}; // For DFS traversal
+
     rawNodes.forEach((n) => {
       metrics[n.id] = { id: n.id, label: n.data.label, inDegree: 0, outDegree: 0 };
+      adjList[n.id] = [];
     });
 
     rawEdges.forEach((e) => {
-      if (metrics[e.target]) metrics[e.target].inDegree += 1; // How many files import this?
-      if (metrics[e.source]) metrics[e.source].outDegree += 1; // How many files does this import?
+      if (metrics[e.target]) metrics[e.target].inDegree += 1;
+      if (metrics[e.source]) metrics[e.source].outDegree += 1;
+      if (adjList[e.source]) adjList[e.source].push(e.target);
     });
+
+    // --- NEW: DFS Cycle Detection ---
+    const visited = new Set();
+    const recursionStack = new Set();
+    const detectedCycles = [];
+
+    const dfs = (nodeId, path) => {
+      visited.add(nodeId);
+      recursionStack.add(nodeId);
+
+      const neighbors = adjList[nodeId] || [];
+      for (let neighbor of neighbors) {
+        if (!visited.has(neighbor)) {
+          dfs(neighbor, [...path, neighbor]);
+        } else if (recursionStack.has(neighbor)) {
+          // Cycle found! Extract just the loop part
+          const cycleStartIdx = path.indexOf(neighbor);
+          const cyclePath = path.slice(cycleStartIdx);
+          cyclePath.push(neighbor); // Close the loop visually (A -> B -> A)
+          
+          // Prevent logging the exact same cycle multiple times
+          const cycleString = cyclePath.sort().join('->');
+          if (!detectedCycles.some(c => c.sort().join('->') === cycleString)) {
+            detectedCycles.push(cyclePath);
+          }
+        }
+      }
+      recursionStack.delete(nodeId);
+    };
+
+    rawNodes.forEach(n => {
+      if (!visited.has(n.id)) dfs(n.id, [n.id]);
+    });
+    // --------------------------------
 
     const allNodes = Object.values(metrics);
     
     return {
       totalFiles: rawNodes.length,
       totalDependencies: rawEdges.length,
-      // Sort by highest incoming connections (God Modules)
       topBottlenecks: [...allNodes].sort((a, b) => b.inDegree - a.inDegree).slice(0, 5),
-      // Files that nothing imports, but they import other things
       entryPoints: allNodes.filter((n) => n.inDegree === 0 && n.outDegree > 0),
-      // Files with zero connections (potentially dead code)
       isolated: allNodes.filter((n) => n.inDegree === 0 && n.outDegree === 0),
+      cycles: detectedCycles, // Export the found cycles
     };
   }, [rawNodes, rawEdges]);
 
@@ -720,6 +756,28 @@ export default function App() {
 
             <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
               
+              {/* WARNING: CIRCULAR DEPENDENCIES */}
+              {codebaseInsights.cycles.length > 0 && (
+                <div>
+                  <h3 style={{ fontSize: '12px', color: '#f6ad55', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    ⚠️️ Circular Dependencies Detected
+                  </h3>
+                  {codebaseInsights.cycles.map((cycle, i) => (
+                    <div key={i} style={{ background: '#7b341e', padding: '12px', borderRadius: '6px', marginBottom: '8px', borderLeft: '3px solid #dd6b20', fontSize: '13px', color: '#fff', fontFamily: 'monospace' }}>
+                      {cycle.map((nodeId, idx) => {
+                        const fileName = rawNodes.find(n => n.id === nodeId)?.data.label || nodeId;
+                        return (
+                          <span key={idx}>
+                            {fileName}
+                            {idx < cycle.length - 1 && <span style={{ color: '#fbd38d', margin: '0 6px' }}>→</span>}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  ))}
+                </div>
+              )}
+
               {/* TOP BOTTLENECKS */}
               <div>
                 <h3 style={{ fontSize: '12px', color: '#a0aec0', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '10px' }}>
