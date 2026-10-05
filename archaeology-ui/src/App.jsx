@@ -93,6 +93,35 @@ export default function App() {
   // Dynamic folder path
   const [targetPath, setTargetPath] = useState('./src');
 
+  // Global Chat Modal & Dragging State
+  const [isGlobalChatOpen, setIsGlobalChatOpen] = useState(false);
+  const [chatPosition, setChatPosition] = useState({ 
+    x: typeof window !== 'undefined' ? window.innerWidth - 470 : 800, 
+    y: typeof window !== 'undefined' ? window.innerHeight - 560 : 200 
+  });
+
+  const handleDragStart = (e) => {
+    // Prevent dragging when clicking buttons inside the header
+    if (e.target.closest('button')) return;
+
+    const startX = e.clientX - chatPosition.x;
+    const startY = e.clientY - chatPosition.y;
+
+    const onMouseMove = (moveEvent) => {
+      const newX = Math.max(10, Math.min(window.innerWidth - 440, moveEvent.clientX - startX));
+      const newY = Math.max(10, Math.min(window.innerHeight - 520, moveEvent.clientY - startY));
+      setChatPosition({ x: newX, y: newY });
+    };
+
+    const onMouseUp = () => {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  };
+
   const handleFileUpload = async (e) => {
     const files = e.target.files;
     if (!files.length) return;
@@ -1203,12 +1232,230 @@ export default function App() {
               </details>
 
             </div>
+
+            {/* STICKY LAUNCH BUTTON AT BOTTOM OF INSIGHTS */}
+              <div style={{ marginTop: 'auto', paddingTop: '15px', borderTop: '1px solid #4a5568' }}>
+                <button
+                  onClick={() => setIsGlobalChatOpen(true)}
+                  style={{
+                    width: '100%',
+                    padding: '12px 16px',
+                    background: 'linear-gradient(135deg, #3182ce 0%, #2b6cb0 100%)',
+                    color: 'white',
+                    border: '1px solid #63b3ed',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    fontSize: '13px',
+                    fontWeight: 'bold',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.2)',
+                  }}
+                >
+                  <span>🧠</span> Ask Repository Copilot
+                </button>
+              </div>
+
           </div>
         ) : null}
 
           </div>
         </div>
       </div>
+      {/* =====================================================
+          FLOATING DRAGGABLE REPOSITORY CHAT MODAL
+          ===================================================== */}
+      {isGlobalChatOpen && (
+        <div
+          style={{
+            position: 'fixed',
+            left: `${chatPosition.x}px`,
+            top: `${chatPosition.y}px`,
+            width: '420px',
+            height: '520px',
+            background: '#1a202c',
+            border: '1px solid #4a5568',
+            borderRadius: '10px',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.3)',
+            display: 'flex',
+            flexDirection: 'column',
+            zIndex: 9999,
+            overflow: 'hidden',
+          }}
+        >
+          {/* DRAGGABLE HEADER */}
+          <div
+            onMouseDown={handleDragStart}
+            style={{
+              padding: '12px 16px',
+              background: '#2d3748',
+              borderBottom: '1px solid #4a5568',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              cursor: 'grab',
+              userSelect: 'none',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '15px' }}>🧠</span>
+              <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#63b3ed', letterSpacing: '0.5px' }}>
+                Repository Copilot
+              </span>
+            </div>
+            
+            <button
+              onClick={() => setIsGlobalChatOpen(false)}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: '#a0aec0',
+                cursor: 'pointer',
+                fontSize: '16px',
+                padding: '0 4px',
+                lineHeight: 1,
+              }}
+              title="Close chat (History will be saved)"
+            >
+              ✖
+            </button>
+          </div>
+
+          {/* CHAT MESSAGE LIST */}
+          <div
+            style={{
+              flex: 1,
+              overflowY: 'auto',
+              padding: '15px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '12px',
+              background: '#171923',
+            }}
+          >
+            {globalMessages.length === 0 ? (
+              <div style={{ margin: 'auto', textAlign: 'center', color: '#a0aec0', fontSize: '13px', maxWidth: '80%' }}>
+                <p style={{ margin: '0 0 6px 0', fontWeight: 'bold', color: '#e2e8f0' }}>Macro Intelligence</p>
+                Ask questions across all files (e.g., "Where does user authentication run?" or "Trace the primary data flow.")
+              </div>
+            ) : (
+              globalMessages.map((msg, index) => (
+                <div
+                  key={index}
+                  style={{
+                    alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start',
+                    background: msg.role === 'user' ? '#3182ce' : '#2d3748',
+                    color: '#fff',
+                    padding: '10px 14px',
+                    borderRadius: '8px',
+                    maxWidth: '85%',
+                    fontSize: '13px',
+                    lineHeight: '1.5',
+                    overflowX: 'auto',
+                    border: msg.role === 'ai' ? '1px solid #4a5568' : 'none',
+                  }}
+                >
+                  {msg.role === 'ai' ? (
+                    <ReactMarkdown
+                      components={{
+                        code({ inline, children, ...props }) {
+                          return (
+                            <code
+                              style={{
+                                background: '#1a202c',
+                                padding: inline ? '2px 4px' : '8px',
+                                borderRadius: '4px',
+                                display: inline ? 'inline' : 'block',
+                                color: '#63b3ed',
+                              }}
+                              {...props}
+                            >
+                              {children}
+                            </code>
+                          );
+                        },
+                      }}
+                    >
+                      {msg.content}
+                    </ReactMarkdown>
+                  ) : (
+                    msg.content
+                  )}
+                </div>
+              ))
+            )}
+
+            {isGlobalChatLoading && (
+              <div
+                style={{
+                  alignSelf: 'flex-start',
+                  background: '#2d3748',
+                  padding: '10px 14px',
+                  borderRadius: '8px',
+                  fontSize: '13px',
+                  color: '#cbd5e0',
+                  fontStyle: 'italic',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                }}
+              >
+                <span>✨</span> Reading codebase context...
+              </div>
+            )}
+          </div>
+
+          {/* INPUT BAR */}
+          <div style={{ padding: '12px', background: '#2d3748', borderTop: '1px solid #4a5568' }}>
+            <input
+              type="text"
+              placeholder="Ask about the entire codebase... (Enter)"
+              style={{
+                width: '100%',
+                padding: '10px 12px',
+                borderRadius: '6px',
+                border: '1px solid #4a5568',
+                background: '#1a202c',
+                color: 'white',
+                outline: 'none',
+                boxSizing: 'border-box',
+                fontSize: '13px',
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && e.target.value.trim() !== '') {
+                  const question = e.target.value.trim();
+                  setGlobalMessages((prev) => [...prev, { role: 'user', content: question }]);
+                  e.target.value = '';
+                  e.target.disabled = true;
+                  setIsGlobalChatLoading(true);
+
+                  fetch(`${API_URL}/api/chat/global`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ question }),
+                  })
+                    .then((res) => res.json())
+                    .then((data) => {
+                      setIsGlobalChatLoading(false);
+                      setGlobalMessages((prev) => [...prev, { role: 'ai', content: data.reply || 'No response.' }]);
+                      e.target.disabled = false;
+                      e.target.focus();
+                    })
+                    .catch((error) => {
+                      console.error('Global chat error:', error);
+                      setIsGlobalChatLoading(false);
+                      setGlobalMessages((prev) => [...prev, { role: 'ai', content: '⚠️ Error communicating with AI.' }]);
+                      e.target.disabled = false;
+                      e.target.focus();
+                    });
+                }
+              }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
