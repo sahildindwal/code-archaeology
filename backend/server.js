@@ -209,6 +209,69 @@ app.post('/api/chat', async (req, res) => {
   }
 });
 
+// Helper function to recursively grab all JS/TS files in the workspace
+const getAllFiles = (dirPath, arrayOfFiles = []) => {
+  if (!fs.existsSync(dirPath)) return arrayOfFiles;
+  
+  const files = fs.readdirSync(dirPath);
+  files.forEach((file) => {
+    const fullPath = path.join(dirPath, file);
+    if (fs.statSync(fullPath).isDirectory()) {
+      arrayOfFiles = getAllFiles(fullPath, arrayOfFiles);
+    } else {
+      if (fullPath.match(/\.(js|jsx|ts|tsx)$/)) {
+        arrayOfFiles.push(fullPath);
+      }
+    }
+  });
+  return arrayOfFiles;
+};
+
+// NEW: Global Repository Chat Endpoint
+app.post('/api/chat/global', async (req, res) => {
+  const { question } = req.body;
+
+  if (!question) {
+    return res.status(400).json({ error: "Missing question." });
+  }
+
+  try {
+    // 1. Gather all codebase files
+    const allFiles = getAllFiles('./workspace');
+    let combinedCode = '';
+    
+    allFiles.forEach(file => {
+      combinedCode += `\n\n=== FILE: ${file} ===\n`;
+      combinedCode += fs.readFileSync(file, 'utf8');
+    });
+
+    // Safeguard: Slice to ~300,000 characters to respect free-tier API limits
+    // while still passing massive amounts of context.
+    const safeContext = combinedCode.slice(0, 300000);
+
+    const prompt = `
+      You are a senior software architect assisting a developer with an unfamiliar codebase.
+      Here is the complete source code of the repository:
+      
+      ${safeContext}
+      
+      User's Question: ${question}
+      
+      Answer the question accurately based ONLY on the provided codebase. 
+      Reference specific filenames where applicable. Use markdown formatting.
+    `;
+
+    const model = genAI.getGenerativeModel({ model: "gemini-3.8-flash" });
+    const result = await model.generateContent(prompt);
+    
+    res.json({ reply: result.response.text() });
+
+  } catch (error) {
+    console.error("Global AI Chat Error:", error);
+    res.status(500).json({ error: "Failed to analyze the entire repository." });
+  }
+});
+
 // 3. Start the Server
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Code Archaeology backend running at http://localhost:${PORT}`);

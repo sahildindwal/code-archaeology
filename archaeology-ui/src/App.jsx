@@ -66,6 +66,9 @@ const getLayoutedElements = (nodes, edges, direction = 'TB') => {
 export default function App() {
   const [rawNodes, setRawNodes] = useState([]);
   const [rawEdges, setRawEdges] = useState([]);
+  // Global Chat State
+  const [globalMessages, setGlobalMessages] = useState([]);
+  const [isGlobalChatLoading, setIsGlobalChatLoading] = useState(false);
   // GitHub URL state
   const [githubUrl, setGithubUrl] = useState('');
 
@@ -98,6 +101,7 @@ export default function App() {
     setHoveredNodeId(null);
     setSelectedFile(null);
     setMessages([]);
+    setGlobalMessages([]);
 
     const fileDataArray = [];
 
@@ -174,6 +178,7 @@ export default function App() {
     setHoveredNodeId(null);
     setSelectedFile(null);
     setMessages([]);
+    setGlobalMessages([]);
 
     fetch(`${API_URL}/api/github`, {
       method: 'POST',
@@ -1069,6 +1074,79 @@ export default function App() {
                   ) : (
                     <div style={{ color: '#a0aec0' }}>Generate an AI summary to understand the high-level architecture.</div>
                   )}
+                </div>
+              </div>
+
+              {/* NEW: GLOBAL REPOSITORY CHAT */}
+              <div style={{ background: '#1a202c', borderRadius: '8px', border: '1px solid #4a5568', display: 'flex', flexDirection: 'column', maxHeight: '400px' }}>
+                <div style={{ padding: '12px 15px', borderBottom: '1px solid #4a5568', background: '#2d3748', borderTopLeftRadius: '8px', borderTopRightRadius: '8px' }}>
+                  <h3 style={{ margin: 0, fontSize: '13px', color: '#63b3ed', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                    💬 Chat with Repository
+                  </h3>
+                </div>
+                
+                {/* Chat History */}
+                <div style={{ padding: '15px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px', flexGrow: 1, minHeight: '150px' }}>
+                  {globalMessages.length === 0 ? (
+                    <div style={{ color: '#a0aec0', fontSize: '12px', textAlign: 'center', margin: 'auto' }}>
+                      Ask a question about the entire codebase. (e.g., "Where is the routing handled?")
+                    </div>
+                  ) : (
+                    globalMessages.map((msg, index) => (
+                      <div key={index} style={{ alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start', background: msg.role === 'user' ? '#3182ce' : '#4a5568', padding: '10px 14px', borderRadius: '8px', maxWidth: '90%', fontSize: '13px', lineHeight: '1.5', overflowX: 'auto' }}>
+                        {msg.role === 'ai' ? (
+                          <ReactMarkdown components={{ code({inline, children}) { return <code style={{ background: '#1a202c', padding: inline ? '2px 4px' : '8px', borderRadius: '4px', display: inline ? 'inline' : 'block', color: '#63b3ed' }}>{children}</code> }}}>
+                            {msg.content}
+                          </ReactMarkdown>
+                        ) : (
+                          msg.content
+                        )}
+                      </div>
+                    ))
+                  )}
+                  {isGlobalChatLoading && (
+                    <div style={{ alignSelf: 'flex-start', background: '#4a5568', padding: '10px 14px', borderRadius: '8px', fontSize: '13px', color: '#cbd5e0', fontStyle: 'italic' }}>
+                      ✨ Analyzing entire repository...
+                    </div>
+                  )}
+                </div>
+
+                {/* Input Field */}
+                <div style={{ padding: '10px', borderTop: '1px solid #4a5568', background: '#2d3748', borderBottomLeftRadius: '8px', borderBottomRightRadius: '8px' }}>
+                  <input
+                    type="text"
+                    placeholder="Ask about the repo..."
+                    style={{ width: '100%', padding: '10px', borderRadius: '4px', border: 'none', background: '#1a202c', color: 'white', boxSizing: 'border-box', outline: 'none', fontSize: '13px' }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && e.target.value.trim() !== '') {
+                        const question = e.target.value.trim();
+                        setGlobalMessages(prev => [...prev, { role: 'user', content: question }]);
+                        e.target.value = '';
+                        e.target.disabled = true;
+                        setIsGlobalChatLoading(true);
+
+                        fetch(`${API_URL}/api/chat/global`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ question }),
+                        })
+                          .then(res => res.json())
+                          .then(data => {
+                            setIsGlobalChatLoading(false);
+                            setGlobalMessages(prev => [...prev, { role: 'ai', content: data.reply || 'No response.' }]);
+                            e.target.disabled = false;
+                            e.target.focus();
+                          })
+                          .catch(error => {
+                            console.error('Global chat error:', error);
+                            setIsGlobalChatLoading(false);
+                            setGlobalMessages(prev => [...prev, { role: 'ai', content: '⚠️ Error communicating with AI.' }]);
+                            e.target.disabled = false;
+                            e.target.focus();
+                          });
+                      }
+                    }}
+                  />
                 </div>
               </div>
 
