@@ -198,6 +198,36 @@ export default function App() {
   }, [hoveredNodeId, rawEdges]);
 
   // ---------------------------------------------------------
+  // CODEBASE ARCHITECTURE INSIGHTS
+  // ---------------------------------------------------------
+  const codebaseInsights = useMemo(() => {
+    if (!rawNodes.length || !rawEdges.length) return null;
+
+    const metrics = {};
+    rawNodes.forEach((n) => {
+      metrics[n.id] = { id: n.id, label: n.data.label, inDegree: 0, outDegree: 0 };
+    });
+
+    rawEdges.forEach((e) => {
+      if (metrics[e.target]) metrics[e.target].inDegree += 1; // How many files import this?
+      if (metrics[e.source]) metrics[e.source].outDegree += 1; // How many files does this import?
+    });
+
+    const allNodes = Object.values(metrics);
+    
+    return {
+      totalFiles: rawNodes.length,
+      totalDependencies: rawEdges.length,
+      // Sort by highest incoming connections (God Modules)
+      topBottlenecks: [...allNodes].sort((a, b) => b.inDegree - a.inDegree).slice(0, 5),
+      // Files that nothing imports, but they import other things
+      entryPoints: allNodes.filter((n) => n.inDegree === 0 && n.outDegree > 0),
+      // Files with zero connections (potentially dead code)
+      isolated: allNodes.filter((n) => n.inDegree === 0 && n.outDegree === 0),
+    };
+  }, [rawNodes, rawEdges]);
+
+  // ---------------------------------------------------------
   // STYLE NODES
   // ---------------------------------------------------------
 
@@ -420,10 +450,10 @@ export default function App() {
         </div>
 
         {/* =================================================
-            RIGHT SIDE - CODE + CHAT SIDEBAR
+            RIGHT SIDE - DYNAMIC SIDEBAR
             ================================================= */}
 
-        {selectedFile && (
+        {selectedFile ? (
           <div
             style={{
               width: '450px',
@@ -442,12 +472,10 @@ export default function App() {
             <div
               style={{
                 padding: '15px',
-                borderBottom:
-                  '1px solid #4a5568',
+                borderBottom: '1px solid #4a5568',
                 background: '#1a202c',
                 display: 'flex',
-                justifyContent:
-                  'space-between',
+                justifyContent: 'space-between',
                 alignItems: 'center',
                 flexShrink: 0,
               }}
@@ -465,9 +493,7 @@ export default function App() {
               </h2>
 
               <button
-                onClick={() =>
-                  setSelectedFile(null)
-                }
+                onClick={() => setSelectedFile(null)}
                 style={{
                   background: 'none',
                   border: 'none',
@@ -490,8 +516,7 @@ export default function App() {
                 padding: '15px',
                 overflowY: 'auto',
                 textAlign: 'left',
-                borderBottom:
-                  '2px solid #1a202c',
+                borderBottom: '2px solid #1a202c',
                 minHeight: 0,
               }}
             >
@@ -500,8 +525,7 @@ export default function App() {
                   fontSize: '12px',
                   color: '#a0aec0',
                   marginTop: 0,
-                  textTransform:
-                    'uppercase',
+                  textTransform: 'uppercase',
                   letterSpacing: '1px',
                 }}
               >
@@ -520,9 +544,7 @@ export default function App() {
                   wordBreak: 'break-word',
                 }}
               >
-                <code>
-                  {fileContent}
-                </code>
+                <code>{fileContent}</code>
               </pre>
             </div>
 
@@ -534,8 +556,7 @@ export default function App() {
               style={{
                 flex: 1,
                 display: 'flex',
-                flexDirection:
-                  'column',
+                flexDirection: 'column',
                 background: '#2d3748',
                 overflow: 'hidden',
                 minHeight: 0,
@@ -549,8 +570,7 @@ export default function App() {
                   overflowY: 'auto',
                   padding: '15px',
                   display: 'flex',
-                  flexDirection:
-                    'column',
+                  flexDirection: 'column',
                   gap: '10px',
                   minHeight: 0,
                 }}
@@ -568,18 +588,16 @@ export default function App() {
                         background: msg.role === 'user' ? '#3182ce' : '#4a5568',
                         padding: '10px 14px',
                         borderRadius: '8px',
-                        maxWidth: '90%', // slightly wider to accommodate code blocks
+                        maxWidth: '90%',
                         fontSize: '14px',
                         lineHeight: '1.5',
                         textAlign: 'left',
-                        // Remove whiteSpace: pre-wrap so Markdown handles the spacing
-                        overflowX: 'auto', // Allows code blocks to scroll horizontally
+                        overflowX: 'auto',
                       }}
                     >
                       {msg.role === 'ai' ? (
                         <ReactMarkdown 
                           components={{
-                            // Make code blocks inside the chat look distinct
                             code({node, inline, className, children, ...props}) {
                               return (
                                 <code
@@ -606,7 +624,8 @@ export default function App() {
                     </div>
                   ))
                 )}
-                {/* NEW: The "Thinking" Bubble */}
+                
+                {/* The "Thinking" Bubble */}
                 {isChatLoading && (
                   <div
                     style={{
@@ -648,23 +667,19 @@ export default function App() {
                     border: 'none',
                     background: '#2d3748',
                     color: 'white',
-                    boxSizing:
-                      'border-box',
+                    boxSizing: 'border-box',
                     outline: 'none',
                   }}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && e.target.value.trim() !== '') {
                       const question = e.target.value.trim();
 
-                      // 1. Add user message and clear input
                       setMessages((prev) => [...prev, { role: 'user', content: question }]);
                       e.target.value = '';
                       e.target.disabled = true;
                       
-                      // 2. Turn on the loading bubble!
                       setIsChatLoading(true);
 
-                      // 3. Ask Gemini
                       fetch(`${API_URL}/api/chat`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -672,7 +687,6 @@ export default function App() {
                       })
                         .then((res) => res.json())
                         .then((data) => {
-                          // 4. Turn off loading, add AI response
                           setIsChatLoading(false);
                           setMessages((prev) => [...prev, { role: 'ai', content: data.reply || 'No response received from AI.' }]);
                           e.target.disabled = false;
@@ -680,7 +694,6 @@ export default function App() {
                         })
                         .catch((error) => {
                           console.error('AI chat error:', error);
-                          // 4. Turn off loading even if it fails
                           setIsChatLoading(false);
                           setMessages((prev) => [...prev, { role: 'ai', content: '⚠️ Error communicating with AI.' }]);
                           e.target.disabled = false;
@@ -692,7 +705,53 @@ export default function App() {
               </div>
             </div>
           </div>
-        )}
+        ) : codebaseInsights ? (
+          /* =================================================
+             NEW: ARCHITECTURE INSIGHTS DASHBOARD
+             ================================================= */
+          <div style={{ width: '450px', borderLeft: '1px solid #4a5568', background: '#2d3748', display: 'flex', flexDirection: 'column', flexShrink: 0, overflowY: 'auto' }}>
+            
+            <div style={{ padding: '20px', borderBottom: '1px solid #4a5568', background: '#1a202c' }}>
+              <h2 style={{ margin: 0, fontSize: '18px', color: '#63b3ed' }}>🧠 Architecture Insights</h2>
+              <p style={{ margin: '5px 0 0', fontSize: '13px', color: '#a0aec0' }}>
+                Analyzed {codebaseInsights.totalFiles} files and {codebaseInsights.totalDependencies} dependencies.
+              </p>
+            </div>
+
+            <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+              
+              {/* TOP BOTTLENECKS */}
+              <div>
+                <h3 style={{ fontSize: '12px', color: '#a0aec0', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '10px' }}>
+                  🔥 Most Connected Files (Bottlenecks)
+                </h3>
+                {codebaseInsights.topBottlenecks.map((node) => (
+                  <div key={node.id} style={{ background: '#1a202c', padding: '12px', borderRadius: '6px', marginBottom: '8px', borderLeft: '3px solid #fc8181' }}>
+                    <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#fff', wordBreak: 'break-all' }}>{node.label}</div>
+                    <div style={{ fontSize: '12px', color: '#fc8181', marginTop: '4px' }}>
+                      Imported by {node.inDegree} files
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* POTENTIAL ENTRY POINTS */}
+              <div>
+                <h3 style={{ fontSize: '12px', color: '#a0aec0', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '10px' }}>
+                  🚪 Likely Entry Points
+                </h3>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                  {codebaseInsights.entryPoints.slice(0, 10).map((node) => (
+                    <span key={node.id} style={{ background: '#1a202c', color: '#68d391', padding: '4px 8px', borderRadius: '4px', fontSize: '12px', border: '1px solid #276749' }}>
+                      {node.label}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+            </div>
+          </div>
+        ) : null}
       </div>
     </div>
   );
