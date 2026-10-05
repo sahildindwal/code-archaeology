@@ -80,6 +80,9 @@ export default function App() {
 
   const [loading, setLoading] = useState(false);
 
+  // UI State
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+
   // Chat messages
   const [messages, setMessages] = useState([]);
   const [isChatLoading, setIsChatLoading] = useState(false); // NEW: Track AI thinking state
@@ -617,6 +620,16 @@ export default function App() {
             style={{ display: 'none' }} 
           />
         </label>
+
+        {/* NEW: Sidebar Toggle Button */}
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center' }}>
+          <button
+            onClick={() => setIsSidebarOpen(prev => !prev)}
+            style={{ padding: '8px 12px', background: isSidebarOpen ? '#4a5568' : '#3182ce', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', transition: 'background 0.2s' }}
+          >
+            {isSidebarOpen ? 'Collapse Panel ➡' : '⬅ Expand Panel'}
+          </button>
+        </div>
       </div>
 
       {/* =====================================================
@@ -679,7 +692,23 @@ export default function App() {
             RIGHT SIDE - DYNAMIC SIDEBAR
             ================================================= */}
 
-        {selectedFile ? (
+          {/* =================================================
+            RIGHT SIDEBAR (SLIDING WRAPPER)
+            ================================================= */}
+        <div
+          style={{
+            width: isSidebarOpen ? '450px' : '0px',
+            transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+            overflow: 'hidden', // Hides content while sliding
+            flexShrink: 0,
+            background: '#2d3748',
+            borderLeft: isSidebarOpen ? '1px solid #4a5568' : 'none',
+          }}
+        >
+          {/* Inner container locks width to 450px so text doesn't squish during animation */}
+          <div style={{ width: '450px', height: '100%', display: 'flex', flexDirection: 'column' }}>
+            
+            {selectedFile ? (
           <div
             style={{
               width: '450px',
@@ -976,9 +1005,9 @@ export default function App() {
           </div>
         ) : codebaseInsights ? (
           /* =================================================
-             NEW: ARCHITECTURE INSIGHTS DASHBOARD
+             ARCHITECTURE INSIGHTS DASHBOARD (CLEANED UP)
              ================================================= */
-          <div style={{ width: '450px', borderLeft: '1px solid #4a5568', background: '#2d3748', display: 'flex', flexDirection: 'column', flexShrink: 0, overflowY: 'auto' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflowY: 'auto' }}>
             
             <div style={{ padding: '20px', borderBottom: '1px solid #4a5568', background: '#1a202c' }}>
               <h2 style={{ margin: 0, fontSize: '18px', color: '#63b3ed' }}>🧠 Architecture Insights</h2>
@@ -987,125 +1016,120 @@ export default function App() {
               </p>
             </div>
 
-            {/* NEW: CODEBASE HEALTH SCORE */}
-            <div style={{ padding: '20px', background: '#222938', borderBottom: '1px solid #4a5568', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div>
-                <h3 style={{ margin: '0 0 8px 0', fontSize: '13px', color: '#a0aec0', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                  Codebase Health
-                </h3>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <div style={{ fontSize: '32px', fontWeight: 'bold', color: codebaseInsights.healthColor, lineHeight: '1' }}>
-                    {codebaseInsights.healthScore}
-                  </div>
-                  <div style={{ fontSize: '14px', color: '#a0aec0' }}>/ 100</div>
-                </div>
-              </div>
-              <div style={{ fontSize: '42px', fontWeight: 'bold', color: codebaseInsights.healthColor, opacity: 0.8 }}>
-                {codebaseInsights.healthGrade}
-              </div>
-            </div>
-            
-            {/* Visual Progress Bar */}
-            <div style={{ width: '100%', height: '4px', background: '#4a5568' }}>
-              <div style={{ width: `${codebaseInsights.healthScore}%`, height: '100%', background: codebaseInsights.healthColor, transition: 'width 1s ease-in-out' }} />
-            </div>
-
-            {/* NEW: Penalty Breakdown */}
-            {codebaseInsights.penalties.length > 0 && (
-              <div style={{ padding: '12px 20px', background: '#1a202c', borderBottom: '1px solid #4a5568', fontSize: '12px' }}>
-                <div style={{ color: '#a0aec0', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Score Deductions:</div>
-                {codebaseInsights.penalties.map((p, i) => (
-                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                    <span style={{ color: '#e2e8f0' }}>{p.reason}</span>
-                    <span style={{ color: '#fc8181', fontWeight: 'bold' }}>-{p.minus}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-
             <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
               
-              {/* NEW: AI ARCHITECTURE SUMMARY */}
+              {/* CODEBASE HEALTH SCORE */}
+              <div style={{ background: '#222938', borderRadius: '8px', border: '1px solid #4a5568', overflow: 'hidden' }}>
+                <div style={{ padding: '15px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div>
+                    <h3 style={{ margin: '0 0 5px 0', fontSize: '12px', color: '#a0aec0', textTransform: 'uppercase', letterSpacing: '1px' }}>Codebase Health</h3>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+                      <span style={{ fontSize: '28px', fontWeight: 'bold', color: codebaseInsights.healthColor }}>{codebaseInsights.healthScore}</span>
+                      <span style={{ fontSize: '12px', color: '#a0aec0' }}>/ 100</span>
+                    </div>
+                  </div>
+                  <div style={{ fontSize: '36px', fontWeight: 'bold', color: codebaseInsights.healthColor, opacity: 0.9 }}>{codebaseInsights.healthGrade}</div>
+                </div>
+                
+                <div style={{ width: '100%', height: '4px', background: '#1a202c' }}>
+                  <div style={{ width: `${codebaseInsights.healthScore}%`, height: '100%', background: codebaseInsights.healthColor, transition: 'width 1s ease-in-out' }} />
+                </div>
+
+                {/* Collapsible Score Deductions */}
+                {codebaseInsights.penalties.length > 0 && (
+                  <details style={{ padding: '10px 20px', background: '#1a202c', borderTop: '1px solid #4a5568' }}>
+                    <summary style={{ cursor: 'pointer', fontSize: '12px', color: '#a0aec0', outline: 'none', userSelect: 'none' }}>
+                      View Score Deductions
+                    </summary>
+                    <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '12px' }}>
+                      {codebaseInsights.penalties.map((p, i) => (
+                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span style={{ color: '#e2e8f0' }}>{p.reason}</span>
+                          <span style={{ color: '#fc8181', fontWeight: 'bold' }}>-{p.minus}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </details>
+                )}
+              </div>
+
+              {/* AI ARCHITECTURE SUMMARY */}
               <div style={{ background: '#1a202c', padding: '15px', borderRadius: '8px', border: '1px solid #4a5568' }}>
                 <h3 style={{ margin: '0 0 10px 0', fontSize: '14px', color: '#63b3ed', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   AI System Overview
                   {!architectureSummary && !isSummaryLoading && (
-                    <button 
-                      onClick={fetchArchitectureSummary}
-                      style={{ padding: '4px 10px', fontSize: '12px', background: '#3182ce', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-                    >
-                      ✨ Generate
-                    </button>
+                    <button onClick={fetchArchitectureSummary} style={{ padding: '4px 10px', fontSize: '12px', background: '#3182ce', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>✨ Generate</button>
                   )}
                 </h3>
-                
                 <div style={{ fontSize: '13px', lineHeight: '1.6', color: '#e2e8f0' }}>
                   {isSummaryLoading ? (
-                    <div style={{ fontStyle: 'italic', color: '#a0aec0', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                      <span style={{ fontSize: '16px' }}>✨</span> Analyzing codebase architecture...
-                    </div>
+                    <div style={{ fontStyle: 'italic', color: '#a0aec0' }}>Analyzing codebase architecture...</div>
                   ) : architectureSummary ? (
                     <ReactMarkdown>{architectureSummary}</ReactMarkdown>
                   ) : (
-                    <div style={{ color: '#a0aec0' }}>Generate an AI summary to understand the high-level architecture of this repository.</div>
+                    <div style={{ color: '#a0aec0' }}>Generate an AI summary to understand the high-level architecture.</div>
                   )}
                 </div>
               </div>
 
               {/* WARNING: CIRCULAR DEPENDENCIES */}
               {codebaseInsights.cycles.length > 0 && (
-                <div>
-                  <h3 style={{ fontSize: '12px', color: '#f6ad55', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                    ⚠ Circular Dependencies Detected
-                  </h3>
-                  {codebaseInsights.cycles.map((cycle, i) => (
-                    <div key={i} style={{ background: '#7b341e', padding: '12px', borderRadius: '6px', marginBottom: '8px', borderLeft: '3px solid #dd6b20', fontSize: '13px', color: '#fff', fontFamily: 'monospace' }}>
-                      {cycle.map((nodeId, idx) => {
-                        const fileName = rawNodes.find(n => n.id === nodeId)?.data.label || nodeId;
-                        return (
-                          <span key={idx}>
-                            {fileName}
-                            {idx < cycle.length - 1 && <span style={{ color: '#fbd38d', margin: '0 6px' }}>→</span>}
-                          </span>
-                        );
-                      })}
+                <details open style={{ background: '#2d3748' }}>
+                  <summary style={{ cursor: 'pointer', fontSize: '12px', color: '#f6ad55', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 'bold', outline: 'none' }}>
+                    ⚠ Circular Dependencies ({codebaseInsights.cycles.length})
+                  </summary>
+                  <div style={{ marginTop: '10px' }}>
+                    {codebaseInsights.cycles.map((cycle, i) => (
+                      <div key={i} style={{ background: '#7b341e', padding: '10px', borderRadius: '4px', marginBottom: '6px', borderLeft: '3px solid #dd6b20', fontSize: '12px', color: '#fff', fontFamily: 'monospace' }}>
+                        {cycle.map((nodeId, idx) => {
+                          const fileName = rawNodes.find(n => n.id === nodeId)?.data.label || nodeId;
+                          return (
+                            <span key={idx}>
+                              {fileName}{idx < cycle.length - 1 && <span style={{ color: '#fbd38d', margin: '0 4px' }}>→</span>}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              )}
+
+              {/* COLLAPSIBLE TOP BOTTLENECKS */}
+              <details style={{ background: '#2d3748' }}>
+                <summary style={{ cursor: 'pointer', fontSize: '12px', color: '#a0aec0', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 'bold', outline: 'none' }}>
+                  🔥 Top Bottlenecks
+                </summary>
+                <div style={{ marginTop: '10px' }}>
+                  {codebaseInsights.topBottlenecks.map((node) => (
+                    <div key={node.id} style={{ background: '#1a202c', padding: '10px', borderRadius: '4px', marginBottom: '6px', borderLeft: '3px solid #fc8181' }}>
+                      <div style={{ fontSize: '13px', fontWeight: 'bold', color: '#fff', wordBreak: 'break-all' }}>{node.label}</div>
+                      <div style={{ fontSize: '11px', color: '#fc8181', marginTop: '2px' }}>Imported by {node.inDegree} files</div>
                     </div>
                   ))}
                 </div>
-              )}
+              </details>
 
-              {/* TOP BOTTLENECKS */}
-              <div>
-                <h3 style={{ fontSize: '12px', color: '#a0aec0', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '10px' }}>
-                  🔥 Most Connected Files (Bottlenecks)
-                </h3>
-                {codebaseInsights.topBottlenecks.map((node) => (
-                  <div key={node.id} style={{ background: '#1a202c', padding: '12px', borderRadius: '6px', marginBottom: '8px', borderLeft: '3px solid #fc8181' }}>
-                    <div style={{ fontSize: '14px', fontWeight: 'bold', color: '#fff', wordBreak: 'break-all' }}>{node.label}</div>
-                    <div style={{ fontSize: '12px', color: '#fc8181', marginTop: '4px' }}>
-                      Imported by {node.inDegree} files
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* POTENTIAL ENTRY POINTS */}
-              <div>
-                <h3 style={{ fontSize: '12px', color: '#a0aec0', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '10px' }}>
+              {/* COLLAPSIBLE ENTRY POINTS */}
+              <details style={{ background: '#2d3748', marginBottom: '20px' }}>
+                <summary style={{ cursor: 'pointer', fontSize: '12px', color: '#a0aec0', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 'bold', outline: 'none' }}>
                   🚪 Likely Entry Points
-                </h3>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                </summary>
+                <div style={{ marginTop: '10px', display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                   {codebaseInsights.entryPoints.slice(0, 10).map((node) => (
-                    <span key={node.id} style={{ background: '#1a202c', color: '#68d391', padding: '4px 8px', borderRadius: '4px', fontSize: '12px', border: '1px solid #276749' }}>
+                    <span key={node.id} style={{ background: '#1a202c', color: '#68d391', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', border: '1px solid #276749' }}>
                       {node.label}
                     </span>
                   ))}
                 </div>
-              </div>
+              </details>
 
             </div>
           </div>
         ) : null}
+
+          </div>
+        </div>
       </div>
     </div>
   );
