@@ -5,6 +5,9 @@ import fs from 'fs';
 import 'dotenv/config';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import path from 'path';
+import { exec } from 'child_process';
+import util from 'util';
+const execPromise = util.promisify(exec);
 
 const app = express();
 const PORT = process.env.PORT || 3001; // React usually uses 3000 or 5173 (Vite), so we use 3001 for the backend
@@ -66,6 +69,37 @@ app.post('/api/upload', (req, res) => {
   } catch (error) {
     console.error("Error processing upload:", error);
     res.status(500).json({ error: "Failed to process uploaded codebase." });
+  }
+});
+
+// NEW: GitHub Repository Import Endpoint
+app.post('/api/github', async (req, res) => {
+  const { repoUrl } = req.body;
+  if (!repoUrl || !repoUrl.startsWith('https://github.com/')) {
+    return res.status(400).json({ error: "Please provide a valid public GitHub URL." });
+  }
+
+  const workspaceRoot = './workspace';
+  const targetDir = './workspace/repo';
+
+  try {
+    // 1. Clear out the old workspace completely
+    if (fs.existsSync(workspaceRoot)) {
+      fs.rmSync(workspaceRoot, { recursive: true, force: true });
+    }
+    fs.mkdirSync(workspaceRoot, { recursive: true });
+
+    // 2. Clone the repository using Git
+    console.log(`Cloning repository: ${repoUrl}`);
+    await execPromise(`git clone ${repoUrl} ${targetDir}`);
+
+    // 3. Generate the graph from the newly cloned repo
+    const graphData = generateGraph(targetDir);
+    res.json(graphData);
+
+  } catch (error) {
+    console.error("Error cloning or analyzing GitHub repo:", error);
+    res.status(500).json({ error: "Failed to process GitHub repository. Ensure the repo is public and not too massive." });
   }
 });
 
