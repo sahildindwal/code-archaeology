@@ -327,6 +327,39 @@ export default function App() {
     // --------------------------------
 
     const allNodes = Object.values(metrics);
+
+    // --- NEW: Health Score & Penalty Tracking ---
+    let healthScore = 100;
+    const penalties = [];
+    
+    if (detectedCycles.length > 0) {
+      const cyclePenalty = detectedCycles.length * 15;
+      healthScore -= cyclePenalty;
+      penalties.push({ reason: `Circular dependencies (${detectedCycles.length})`, minus: cyclePenalty });
+    }
+    
+    const godModulesCount = allNodes.filter(n => n.inDegree > 10).length;
+    if (godModulesCount > 0) {
+      const godPenalty = godModulesCount * 5;
+      healthScore -= godPenalty;
+      penalties.push({ reason: `Highly coupled "God Modules" (${godModulesCount})`, minus: godPenalty });
+    }
+    
+    const isolatedCount = allNodes.filter((n) => n.inDegree === 0 && n.outDegree === 0).length;
+    if (isolatedCount > 0) {
+      const isoPenalty = isolatedCount * 2;
+      healthScore -= isoPenalty;
+      penalties.push({ reason: `Isolated/dead files (${isolatedCount})`, minus: isoPenalty });
+    }
+
+    healthScore = Math.max(0, healthScore);
+    
+    let healthColor = '#48bb78';
+    let healthGrade = 'A';
+    if (healthScore < 80) { healthColor = '#ecc94b'; healthGrade = 'B'; }
+    if (healthScore < 60) { healthColor = '#ed8936'; healthGrade = 'C'; }
+    if (healthScore < 40) { healthColor = '#e53e3e'; healthGrade = 'D'; }
+    // -------------------------------------
     
     return {
       totalFiles: rawNodes.length,
@@ -335,6 +368,10 @@ export default function App() {
       entryPoints: allNodes.filter((n) => n.inDegree === 0 && n.outDegree > 0),
       isolated: allNodes.filter((n) => n.inDegree === 0 && n.outDegree === 0),
       cycles: detectedCycles, // Export the found cycles
+      healthScore,    // NEW
+      healthColor,    // NEW
+      healthGrade,    // NEW
+      penalties,      // NEW
     };
   }, [rawNodes, rawEdges]);
 
@@ -949,6 +986,42 @@ export default function App() {
                 Analyzed {codebaseInsights.totalFiles} files and {codebaseInsights.totalDependencies} dependencies.
               </p>
             </div>
+
+            {/* NEW: CODEBASE HEALTH SCORE */}
+            <div style={{ padding: '20px', background: '#222938', borderBottom: '1px solid #4a5568', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <h3 style={{ margin: '0 0 8px 0', fontSize: '13px', color: '#a0aec0', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                  Codebase Health
+                </h3>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div style={{ fontSize: '32px', fontWeight: 'bold', color: codebaseInsights.healthColor, lineHeight: '1' }}>
+                    {codebaseInsights.healthScore}
+                  </div>
+                  <div style={{ fontSize: '14px', color: '#a0aec0' }}>/ 100</div>
+                </div>
+              </div>
+              <div style={{ fontSize: '42px', fontWeight: 'bold', color: codebaseInsights.healthColor, opacity: 0.8 }}>
+                {codebaseInsights.healthGrade}
+              </div>
+            </div>
+            
+            {/* Visual Progress Bar */}
+            <div style={{ width: '100%', height: '4px', background: '#4a5568' }}>
+              <div style={{ width: `${codebaseInsights.healthScore}%`, height: '100%', background: codebaseInsights.healthColor, transition: 'width 1s ease-in-out' }} />
+            </div>
+
+            {/* NEW: Penalty Breakdown */}
+            {codebaseInsights.penalties.length > 0 && (
+              <div style={{ padding: '12px 20px', background: '#1a202c', borderBottom: '1px solid #4a5568', fontSize: '12px' }}>
+                <div style={{ color: '#a0aec0', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Score Deductions:</div>
+                {codebaseInsights.penalties.map((p, i) => (
+                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                    <span style={{ color: '#e2e8f0' }}>{p.reason}</span>
+                    <span style={{ color: '#fc8181', fontWeight: 'bold' }}>-{p.minus}</span>
+                  </div>
+                ))}
+              </div>
+            )}
 
             <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
               
