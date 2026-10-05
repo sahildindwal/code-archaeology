@@ -71,6 +71,10 @@ export default function App() {
 
   const [hoveredNodeId, setHoveredNodeId] = useState(null);
 
+  // Architecture Summary State
+  const [architectureSummary, setArchitectureSummary] = useState(null);
+  const [isSummaryLoading, setIsSummaryLoading] = useState(false);
+
   const [selectedFile, setSelectedFile] = useState(null);
   const [fileContent, setFileContent] = useState('');
 
@@ -204,6 +208,28 @@ export default function App() {
         console.error(err);
         alert("Failed to analyze GitHub repository. It might be too large or private.");
         setLoading(false);
+      });
+  };
+
+  const fetchArchitectureSummary = () => {
+    if (!codebaseInsights) return;
+    
+    setIsSummaryLoading(true);
+    
+    fetch(`${API_URL}/api/summary`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ insights: codebaseInsights }),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        setArchitectureSummary(data.summary);
+        setIsSummaryLoading(false);
+      })
+      .catch((error) => {
+        console.error('Summary error:', error);
+        setArchitectureSummary('⚠️ Failed to generate summary.');
+        setIsSummaryLoading(false);
       });
   };
 
@@ -827,11 +853,38 @@ export default function App() {
 
             <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
               
+              {/* NEW: AI ARCHITECTURE SUMMARY */}
+              <div style={{ background: '#1a202c', padding: '15px', borderRadius: '8px', border: '1px solid #4a5568' }}>
+                <h3 style={{ margin: '0 0 10px 0', fontSize: '14px', color: '#63b3ed', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  AI System Overview
+                  {!architectureSummary && !isSummaryLoading && (
+                    <button 
+                      onClick={fetchArchitectureSummary}
+                      style={{ padding: '4px 10px', fontSize: '12px', background: '#3182ce', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                    >
+                      ✨ Generate
+                    </button>
+                  )}
+                </h3>
+                
+                <div style={{ fontSize: '13px', lineHeight: '1.6', color: '#e2e8f0' }}>
+                  {isSummaryLoading ? (
+                    <div style={{ fontStyle: 'italic', color: '#a0aec0', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                      <span style={{ fontSize: '16px' }}>✨</span> Analyzing codebase architecture...
+                    </div>
+                  ) : architectureSummary ? (
+                    <ReactMarkdown>{architectureSummary}</ReactMarkdown>
+                  ) : (
+                    <div style={{ color: '#a0aec0' }}>Generate an AI summary to understand the high-level architecture of this repository.</div>
+                  )}
+                </div>
+              </div>
+
               {/* WARNING: CIRCULAR DEPENDENCIES */}
               {codebaseInsights.cycles.length > 0 && (
                 <div>
                   <h3 style={{ fontSize: '12px', color: '#f6ad55', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                    ⚠️️ Circular Dependencies Detected
+                    ⚠ Circular Dependencies Detected
                   </h3>
                   {codebaseInsights.cycles.map((cycle, i) => (
                     <div key={i} style={{ background: '#7b341e', padding: '12px', borderRadius: '6px', marginBottom: '8px', borderLeft: '3px solid #dd6b20', fontSize: '13px', color: '#fff', fontFamily: 'monospace' }}>

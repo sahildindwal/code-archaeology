@@ -103,6 +103,39 @@ app.post('/api/github', async (req, res) => {
   }
 });
 
+// NEW: Codebase Architecture Summary Endpoint
+app.post('/api/summary', async (req, res) => {
+  const { insights } = req.body;
+
+  if (!insights) {
+    return res.status(400).json({ error: "Missing architecture metrics." });
+  }
+
+  try {
+    const prompt = `
+      You are an expert software architect reviewing an unfamiliar codebase. 
+      Here are the mathematical metrics extracted from its dependency graph:
+      
+      - Total Files: ${insights.totalFiles}
+      - Total Dependencies: ${insights.totalDependencies}
+      - Top Bottlenecks (Most imported files): ${insights.topBottlenecks.map(n => `${n.label} (${n.inDegree} imports)`).join(', ')}
+      - Likely Entry Points (No incoming dependencies): ${insights.entryPoints.map(n => n.label).join(', ')}
+      - Circular Dependencies Found: ${insights.cycles.length}
+
+      Based strictly on these filenames and metrics, write a concise, professional 2-paragraph summary explaining how this application is likely structured. Identify core services, potential design patterns (like MVC or layered architecture), and point out if the bottlenecks represent a risk (e.g., God modules). Use markdown formatting.
+    `;
+
+    const model = genAI.getGenerativeModel({ model: "gemini-3.8-flash" });
+    const result = await model.generateContent(prompt);
+    
+    res.json({ summary: result.response.text() });
+
+  } catch (error) {
+    console.error("AI Summary Error:", error);
+    res.status(500).json({ error: "Failed to generate architecture summary." });
+  }
+});
+
 // Endpoint to fetch the source code of a specific file
 app.get('/api/file', (req, res) => {
   const filePath = req.query.path;
