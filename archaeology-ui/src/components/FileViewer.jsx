@@ -16,7 +16,7 @@ export default function FileViewer({
   return (
     <div
       style={{
-        width: '450px',
+        width: '100%',
         borderLeft: '1px solid #4a5568',
         display: 'flex',
         flexDirection: 'column',

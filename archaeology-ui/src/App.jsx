@@ -613,20 +613,13 @@ export default function App() {
   // ---------------------------------------------------------
   // LOADING SCREEN
   // ---------------------------------------------------------
-
   if (loading) {
     return (
-      <div
-        style={{
-          color: 'white',
-          padding: '20px',
-          background: '#1a202c',
-          width: '100vw',
-          height: '100vh',
-          boxSizing: 'border-box',
-        }}
-      >
-        Loading Codebase Architecture...
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#1a202c', width: '100vw', height: '100vh', color: 'white', boxSizing: 'border-box' }}>
+        <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
+        <div style={{ width: '50px', height: '50px', border: '4px solid #2d3748', borderTop: '4px solid #63b3ed', borderRadius: '50%', animation: 'spin 1s linear infinite', marginBottom: '24px' }} />
+        <h2 style={{ color: '#e2e8f0', letterSpacing: '1px', margin: '0 0 8px 0' }}>Analyzing Architecture...</h2>
+        <p style={{ color: '#a0aec0', fontSize: '14px', margin: 0 }}>Mapping dependencies and calculating codebase health</p>
       </div>
     );
   }
@@ -683,6 +676,41 @@ export default function App() {
             minWidth: 0,
           }}
         >
+          {/* NEW: EMPTY STATE WELCOME SCREEN */}
+          {rawNodes.length === 0 && !loading && (
+            <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10, background: 'rgba(26, 32, 44, 0.7)' }}>
+              <div style={{ background: '#2d3748', padding: '40px', borderRadius: '12px', border: '1px solid #4a5568', textAlign: 'center', maxWidth: '500px', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' }}>
+                <span style={{ fontSize: '48px', display: 'block', marginBottom: '20px' }}>🏛️</span>
+                <h2 style={{ color: '#63b3ed', margin: '0 0 10px 0' }}>Welcome to Code Archaeology</h2>
+                <p style={{ color: '#a0aec0', fontSize: '14px', lineHeight: '1.6', marginBottom: '25px' }}>
+                  Map out legacy codebases, visualize architectural blast radiuses, and chat with your entire repository using AI. Paste a GitHub URL above or upload a local folder to begin.
+                </p>
+                <button
+                  onClick={() => handleGithubFetch('https://github.com/expressjs/express', 'master')}
+                  style={{ padding: '10px 20px', background: '#3182ce', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
+                >
+                  🚀 Load Express.js Demo
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* NEW: GRAPH LEGEND */}
+          {rawNodes.length > 0 && (
+            <div style={{ position: 'absolute', bottom: '20px', left: '20px', background: '#2d3748', padding: '12px 16px', borderRadius: '8px', border: '1px solid #4a5568', zIndex: 5, boxShadow: '0 4px 6px -1px rgba(0,0,0,0.3)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div style={{ fontSize: '11px', color: '#a0aec0', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Graph Legend</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: '#e2e8f0' }}>
+                <div style={{ width: '14px', height: '14px', background: '#2d3748', border: '2px solid #4a5568', borderRadius: '4px' }} /> Default Module
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: '#e2e8f0' }}>
+                <div style={{ width: '14px', height: '14px', background: '#2b6cb0', border: '2px solid #63b3ed', borderRadius: '4px', boxShadow: '0 0 8px #63b3ed' }} /> Selected File
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: '#e2e8f0' }}>
+                <div style={{ width: '14px', height: '14px', background: '#9b2c2c', border: '2px solid #fc8181', borderRadius: '4px', boxShadow: '0 0 8px #fc8181' }} /> Blast Radius
+              </div>
+            </div>
+          )}
+
           <ReactFlow
             nodes={styledNodes}
             edges={styledEdges}
@@ -724,7 +752,7 @@ export default function App() {
             ================================================= */}
         <div
           style={{
-            width: isSidebarOpen ? '450px' : '0px',
+            width: isSidebarOpen ? 'min(450px, 100vw)' : '0px',
             transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
             overflow: 'hidden', // Hides content while sliding
             flexShrink: 0,
@@ -733,7 +761,7 @@ export default function App() {
           }}
         >
           {/* Inner container locks width to 450px so text doesn't squish during animation */}
-          <div style={{ width: '450px', height: '100%', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ width: 'min(450px, 100vw)', height: '100%', display: 'flex', flexDirection: 'column' }}>
             
             {selectedFile ? (
               <FileViewer
@@ -773,7 +801,7 @@ export default function App() {
             position: 'fixed',
             left: `${chatPosition.x}px`,
             top: `${chatPosition.y}px`,
-            width: '420px',
+            width: 'min(420px, 95vw)',
             height: '520px',
             background: '#1a202c',
             border: '1px solid #4a5568',
@@ -962,7 +990,7 @@ export default function App() {
           ===================================================== */}
       {showDiffModal && architectureDiff && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10000 }}>
-          <div style={{ width: '500px', background: '#1a202c', borderRadius: '10px', border: '1px solid #4a5568', overflow: 'hidden', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' }}>
+          <div style={{ width: 'min(500px, 95vw)', background: '#1a202c', borderRadius: '10px', border: '1px solid #4a5568', overflow: 'hidden', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' }}>
             
             <div style={{ padding: '15px 20px', background: '#2d3748', borderBottom: '1px solid #4a5568', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h2 style={{ margin: 0, fontSize: '16px', color: '#63b3ed' }}>⚖️ Architecture Comparison</h2>
