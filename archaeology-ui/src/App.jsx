@@ -168,7 +168,7 @@ export default function App() {
     setSelectedFile(null);
     setMessages([]);
 
-    fetch('http://localhost:3001/api/github', {
+    fetch(`${API_URL}/api/github`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ repoUrl: githubUrl })
