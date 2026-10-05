@@ -11,6 +11,8 @@ import '@xyflow/react/dist/style.css';
 import dagre from 'dagre';
 import ReactMarkdown from 'react-markdown';
 import TopNavbar from './components/TopNavbar.jsx';
+import ArchitectureInsights from './components/ArchitectureInsights';
+import FileViewer from './components/FileViewer';
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -67,6 +69,9 @@ const getLayoutedElements = (nodes, edges, direction = 'TB') => {
 export default function App() {
   const [rawNodes, setRawNodes] = useState([]);
   const [rawEdges, setRawEdges] = useState([]);
+  // Architecture Diffing State
+  const [snapshot, setSnapshot] = useState(null);
+  const [showDiffModal, setShowDiffModal] = useState(false);
   // Global Chat State
   const [globalMessages, setGlobalMessages] = useState([]);
   const [isGlobalChatLoading, setIsGlobalChatLoading] = useState(false);
@@ -412,6 +417,39 @@ export default function App() {
   }, [rawNodes, rawEdges]);
 
   // ---------------------------------------------------------
+  // ARCHITECTURE DIFF ENGINE
+  // ---------------------------------------------------------
+  const architectureDiff = useMemo(() => {
+    if (!snapshot || !codebaseInsights) return null;
+
+    // 1. Calculate File Deltas
+    const currentFileIds = new Set(rawNodes.map(n => n.id));
+    const snapshotFileIds = new Set(snapshot.nodes.map(n => n.id));
+    
+    const addedFiles = [...currentFileIds].filter(id => !snapshotFileIds.has(id));
+    const removedFiles = [...snapshotFileIds].filter(id => !currentFileIds.has(id));
+
+    // 2. Calculate Dependency Deltas
+    const dependenciesDelta = rawEdges.length - snapshot.edges.length;
+
+    // 3. Health Score Delta
+    const healthDelta = codebaseInsights.healthScore - snapshot.insights.healthScore;
+
+    // 4. Circular Dependency Check
+    const newCycles = codebaseInsights.cycles.length - snapshot.insights.cycles.length;
+
+    return {
+      addedFiles,
+      removedFiles,
+      dependenciesDelta,
+      healthDelta,
+      newCycles,
+      prevHealth: snapshot.insights.healthScore,
+      newHealth: codebaseInsights.healthScore
+    };
+  }, [snapshot, codebaseInsights, rawNodes, rawEdges]);
+
+  // ---------------------------------------------------------
   // CHANGE IMPACT ANALYSIS (SELECTED FILE)
   // ---------------------------------------------------------
   const selectedFileImpact = useMemo(() => {
@@ -698,449 +736,29 @@ export default function App() {
           <div style={{ width: '450px', height: '100%', display: 'flex', flexDirection: 'column' }}>
             
             {selectedFile ? (
-          <div
-            style={{
-              width: '450px',
-              borderLeft: '1px solid #4a5568',
-              display: 'flex',
-              flexDirection: 'column',
-              background: '#2d3748',
-              flexShrink: 0,
-              minHeight: 0,
-            }}
-          >
-            {/* ---------------------------------------------
-                HEADER
-                --------------------------------------------- */}
-
-            <div
-              style={{
-                padding: '15px',
-                borderBottom: '1px solid #4a5568',
-                background: '#1a202c',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                flexShrink: 0,
-              }}
-            >
-              <h2
-                style={{
-                  margin: 0,
-                  fontSize: '18px',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {selectedFile}
-              </h2>
-
-              <button
-                onClick={() => setSelectedFile(null)}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: '#a0aec0',
-                  cursor: 'pointer',
-                  fontSize: '16px',
-                }}
-              >
-                ✖
-              </button>
-            </div>
-
-            {/* ---------------------------------------------
-                CHANGE IMPACT ANALYSIS
-                --------------------------------------------- */}
-            {selectedFileImpact && (
-              <div style={{ padding: '15px', borderBottom: '1px solid #4a5568', background: '#2d3748', flexShrink: 0 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
-                  <h3 style={{ margin: 0, fontSize: '13px', color: '#a0aec0', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                    Blast Radius
-                  </h3>
-                  <span style={{ background: '#1a202c', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', color: selectedFileImpact.riskColor, border: `1px solid ${selectedFileImpact.riskColor}` }}>
-                    {selectedFileImpact.risk} RISK
-                  </span>
-                </div>
-                
-                <div style={{ display: 'flex', gap: '15px', marginBottom: '12px' }}>
-                  <div style={{ background: '#1a202c', padding: '8px', borderRadius: '6px', flex: 1, textAlign: 'center' }}>
-                    <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#fff' }}>{selectedFileImpact.directCount}</div>
-                    <div style={{ fontSize: '11px', color: '#a0aec0' }}>Direct</div>
-                  </div>
-                  <div style={{ background: '#1a202c', padding: '8px', borderRadius: '6px', flex: 1, textAlign: 'center' }}>
-                    <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#fff' }}>{selectedFileImpact.totalCount}</div>
-                    <div style={{ fontSize: '11px', color: '#a0aec0' }}>Total Affected</div>
-                  </div>
-                </div>
-
-                {selectedFileImpact.totalCount > 0 && (
-                  <div>
-                    <div style={{ fontSize: '12px', color: '#a0aec0', marginBottom: '4px' }}>Potentially affected downstream:</div>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                      {selectedFileImpact.sampleFiles.map((file, i) => (
-                        <span key={i} style={{ background: '#1a202c', color: '#e2e8f0', padding: '2px 6px', borderRadius: '4px', fontSize: '11px', border: '1px solid #4a5568' }}>
-                          {file}
-                        </span>
-                      ))}
-                      {selectedFileImpact.hasMore && (
-                        <span style={{ color: '#a0aec0', fontSize: '11px', alignSelf: 'center' }}>+{selectedFileImpact.totalCount - 4} more</span>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* ---------------------------------------------
-                CODE VIEWER
-                --------------------------------------------- */}
-
-            <div
-              style={{
-                flex: 1,
-                padding: '15px',
-                overflowY: 'auto',
-                textAlign: 'left',
-                borderBottom: '2px solid #1a202c',
-                minHeight: 0,
-              }}
-            >
-              <h3
-                style={{
-                  fontSize: '12px',
-                  color: '#a0aec0',
-                  marginTop: 0,
-                  textTransform: 'uppercase',
-                  letterSpacing: '1px',
-                }}
-              >
-                Source Code
-              </h3>
-
-              <pre
-                style={{
-                  background: '#1a202c',
-                  padding: '10px',
-                  borderRadius: '5px',
-                  fontSize: '12px',
-                  overflowX: 'auto',
-                  margin: 0,
-                  whiteSpace: 'pre-wrap',
-                  wordBreak: 'break-word',
-                }}
-              >
-                <code>{fileContent}</code>
-              </pre>
-            </div>
-
-            {/* ---------------------------------------------
-                CHAT
-                --------------------------------------------- */}
-
-            <div
-              style={{
-                flex: 1,
-                display: 'flex',
-                flexDirection: 'column',
-                background: '#2d3748',
-                overflow: 'hidden',
-                minHeight: 0,
-              }}
-            >
-              {/* Chat messages */}
-
-              <div
-                style={{
-                  flex: 1,
-                  overflowY: 'auto',
-                  padding: '15px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '10px',
-                  minHeight: 0,
-                }}
-              >
-                {messages.length === 0 ? (
-                  <div style={{ color: '#a0aec0', fontSize: '14px', textAlign: 'center', marginTop: '20px' }}>
-                    Ask a question about this file to start the conversation.
-                  </div>
-                ) : (
-                  messages.map((msg, index) => (
-                    <div
-                      key={index}
-                      style={{
-                        alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start',
-                        background: msg.role === 'user' ? '#3182ce' : '#4a5568',
-                        padding: '10px 14px',
-                        borderRadius: '8px',
-                        maxWidth: '90%',
-                        fontSize: '14px',
-                        lineHeight: '1.5',
-                        textAlign: 'left',
-                        overflowX: 'auto',
-                      }}
-                    >
-                      {msg.role === 'ai' ? (
-                        <ReactMarkdown 
-                          components={{
-                            code({node, inline, className, children, ...props}) {
-                              return (
-                                <code
-                                  style={{
-                                    background: '#1a202c',
-                                    padding: inline ? '2px 4px' : '8px',
-                                    borderRadius: '4px',
-                                    display: inline ? 'inline' : 'block',
-                                    color: '#63b3ed'
-                                  }}
-                                  {...props}
-                                >
-                                  {children}
-                                </code>
-                              )
-                            }
-                          }}
-                        >
-                          {msg.content}
-                        </ReactMarkdown>
-                      ) : (
-                        msg.content
-                      )}
-                    </div>
-                  ))
-                )}
-                
-                {/* The "Thinking" Bubble */}
-                {isChatLoading && (
-                  <div
-                    style={{
-                      alignSelf: 'flex-start',
-                      background: '#4a5568',
-                      padding: '10px 14px',
-                      borderRadius: '8px',
-                      fontSize: '14px',
-                      color: '#cbd5e0',
-                      fontStyle: 'italic',
-                      display: 'flex',
-                      gap: '5px',
-                      alignItems: 'center'
-                    }}
-                  >
-                    <span style={{ fontSize: '16px' }}>✨</span> Gemini is thinking...
-                  </div>
-                )}
-              </div>
-
-              {/* -----------------------------------------
-                  AI CHAT INPUT
-                  ----------------------------------------- */}
-
-              <div
-                style={{
-                  padding: '15px',
-                  background: '#1a202c',
-                  flexShrink: 0,
-                }}
-              >
-                <input
-                  type="text"
-                  placeholder="Ask Gemini... (Press Enter)"
-                  style={{
-                    width: '100%',
-                    padding: '12px',
-                    borderRadius: '6px',
-                    border: 'none',
-                    background: '#2d3748',
-                    color: 'white',
-                    boxSizing: 'border-box',
-                    outline: 'none',
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && e.target.value.trim() !== '') {
-                      const question = e.target.value.trim();
-
-                      setMessages((prev) => [...prev, { role: 'user', content: question }]);
-                      e.target.value = '';
-                      e.target.disabled = true;
-                      
-                      setIsChatLoading(true);
-
-                      fetch(`${API_URL}/api/chat`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ question, fileName: selectedFile, fileCode: fileContent }),
-                      })
-                        .then((res) => res.json())
-                        .then((data) => {
-                          setIsChatLoading(false);
-                          setMessages((prev) => [...prev, { role: 'ai', content: data.reply || 'No response received from AI.' }]);
-                          e.target.disabled = false;
-                          e.target.focus();
-                        })
-                        .catch((error) => {
-                          console.error('AI chat error:', error);
-                          setIsChatLoading(false);
-                          setMessages((prev) => [...prev, { role: 'ai', content: '⚠️ Error communicating with AI.' }]);
-                          e.target.disabled = false;
-                          e.target.focus();
-                        });
-                    }
-                  }}
-                />
-              </div>
-            </div>
-          </div>
-        ) : codebaseInsights ? (
-          /* =================================================
-             ARCHITECTURE INSIGHTS DASHBOARD (CLEANED UP)
-             ================================================= */
-          <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflowY: 'auto' }}>
-            
-            <div style={{ padding: '20px', borderBottom: '1px solid #4a5568', background: '#1a202c' }}>
-              <h2 style={{ margin: 0, fontSize: '18px', color: '#63b3ed' }}>🧠 Architecture Insights</h2>
-              <p style={{ margin: '5px 0 0', fontSize: '13px', color: '#a0aec0' }}>
-                Analyzed {codebaseInsights.totalFiles} files and {codebaseInsights.totalDependencies} dependencies.
-              </p>
-            </div>
-
-            <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
-              
-              {/* CODEBASE HEALTH SCORE */}
-              <div style={{ background: '#222938', borderRadius: '8px', border: '1px solid #4a5568', overflow: 'hidden' }}>
-                <div style={{ padding: '15px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <div>
-                    <h3 style={{ margin: '0 0 5px 0', fontSize: '12px', color: '#a0aec0', textTransform: 'uppercase', letterSpacing: '1px' }}>Codebase Health</h3>
-                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
-                      <span style={{ fontSize: '28px', fontWeight: 'bold', color: codebaseInsights.healthColor }}>{codebaseInsights.healthScore}</span>
-                      <span style={{ fontSize: '12px', color: '#a0aec0' }}>/ 100</span>
-                    </div>
-                  </div>
-                  <div style={{ fontSize: '36px', fontWeight: 'bold', color: codebaseInsights.healthColor, opacity: 0.9 }}>{codebaseInsights.healthGrade}</div>
-                </div>
-                
-                <div style={{ width: '100%', height: '4px', background: '#1a202c' }}>
-                  <div style={{ width: `${codebaseInsights.healthScore}%`, height: '100%', background: codebaseInsights.healthColor, transition: 'width 1s ease-in-out' }} />
-                </div>
-
-                {/* Collapsible Score Deductions */}
-                {codebaseInsights.penalties.length > 0 && (
-                  <details style={{ padding: '10px 20px', background: '#1a202c', borderTop: '1px solid #4a5568' }}>
-                    <summary style={{ cursor: 'pointer', fontSize: '12px', color: '#a0aec0', outline: 'none', userSelect: 'none' }}>
-                      View Score Deductions
-                    </summary>
-                    <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '12px' }}>
-                      {codebaseInsights.penalties.map((p, i) => (
-                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span style={{ color: '#e2e8f0' }}>{p.reason}</span>
-                          <span style={{ color: '#fc8181', fontWeight: 'bold' }}>-{p.minus}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </details>
-                )}
-              </div>
-
-              {/* AI ARCHITECTURE SUMMARY */}
-              <div style={{ background: '#1a202c', padding: '15px', borderRadius: '8px', border: '1px solid #4a5568' }}>
-                <h3 style={{ margin: '0 0 10px 0', fontSize: '14px', color: '#63b3ed', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  AI System Overview
-                  {!architectureSummary && !isSummaryLoading && (
-                    <button onClick={fetchArchitectureSummary} style={{ padding: '4px 10px', fontSize: '12px', background: '#3182ce', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>✨ Generate</button>
-                  )}
-                </h3>
-                <div style={{ fontSize: '13px', lineHeight: '1.6', color: '#e2e8f0' }}>
-                  {isSummaryLoading ? (
-                    <div style={{ fontStyle: 'italic', color: '#a0aec0' }}>Analyzing codebase architecture...</div>
-                  ) : architectureSummary ? (
-                    <ReactMarkdown>{architectureSummary}</ReactMarkdown>
-                  ) : (
-                    <div style={{ color: '#a0aec0' }}>Generate an AI summary to understand the high-level architecture.</div>
-                  )}
-                </div>
-              </div>
-
-              {/* WARNING: CIRCULAR DEPENDENCIES */}
-              {codebaseInsights.cycles.length > 0 && (
-                <details open style={{ background: '#2d3748' }}>
-                  <summary style={{ cursor: 'pointer', fontSize: '12px', color: '#f6ad55', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 'bold', outline: 'none' }}>
-                    ⚠ Circular Dependencies ({codebaseInsights.cycles.length})
-                  </summary>
-                  <div style={{ marginTop: '10px' }}>
-                    {codebaseInsights.cycles.map((cycle, i) => (
-                      <div key={i} style={{ background: '#7b341e', padding: '10px', borderRadius: '4px', marginBottom: '6px', borderLeft: '3px solid #dd6b20', fontSize: '12px', color: '#fff', fontFamily: 'monospace' }}>
-                        {cycle.map((nodeId, idx) => {
-                          const fileName = rawNodes.find(n => n.id === nodeId)?.data.label || nodeId;
-                          return (
-                            <span key={idx}>
-                              {fileName}{idx < cycle.length - 1 && <span style={{ color: '#fbd38d', margin: '0 4px' }}>→</span>}
-                            </span>
-                          );
-                        })}
-                      </div>
-                    ))}
-                  </div>
-                </details>
-              )}
-
-              {/* COLLAPSIBLE TOP BOTTLENECKS */}
-              <details style={{ background: '#2d3748' }}>
-                <summary style={{ cursor: 'pointer', fontSize: '12px', color: '#a0aec0', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 'bold', outline: 'none' }}>
-                  🔥 Top Bottlenecks
-                </summary>
-                <div style={{ marginTop: '10px' }}>
-                  {codebaseInsights.topBottlenecks.map((node) => (
-                    <div key={node.id} style={{ background: '#1a202c', padding: '10px', borderRadius: '4px', marginBottom: '6px', borderLeft: '3px solid #fc8181' }}>
-                      <div style={{ fontSize: '13px', fontWeight: 'bold', color: '#fff', wordBreak: 'break-all' }}>{node.label}</div>
-                      <div style={{ fontSize: '11px', color: '#fc8181', marginTop: '2px' }}>Imported by {node.inDegree} files</div>
-                    </div>
-                  ))}
-                </div>
-              </details>
-
-              {/* COLLAPSIBLE ENTRY POINTS */}
-              <details style={{ background: '#2d3748', marginBottom: '20px' }}>
-                <summary style={{ cursor: 'pointer', fontSize: '12px', color: '#a0aec0', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 'bold', outline: 'none' }}>
-                  🚪 Likely Entry Points
-                </summary>
-                <div style={{ marginTop: '10px', display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                  {codebaseInsights.entryPoints.slice(0, 10).map((node) => (
-                    <span key={node.id} style={{ background: '#1a202c', color: '#68d391', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', border: '1px solid #276749' }}>
-                      {node.label}
-                    </span>
-                  ))}
-                </div>
-              </details>
-
-            </div>
-
-            {/* STICKY LAUNCH BUTTON AT BOTTOM OF INSIGHTS */}
-              <div style={{ marginTop: 'auto', paddingTop: '15px', borderTop: '1px solid #4a5568' }}>
-                <button
-                  onClick={() => setIsGlobalChatOpen(true)}
-                  style={{
-                    width: '100%',
-                    padding: '12px 16px',
-                    background: 'linear-gradient(135deg, #3182ce 0%, #2b6cb0 100%)',
-                    color: 'white',
-                    border: '1px solid #63b3ed',
-                    borderRadius: '8px',
-                    cursor: 'pointer',
-                    fontSize: '13px',
-                    fontWeight: 'bold',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '8px',
-                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.2)',
-                  }}
-                >
-                  <span>🧠</span> Ask Repository Copilot
-                </button>
-              </div>
-
-          </div>
+              <FileViewer
+                selectedFile={selectedFile}
+                setSelectedFile={setSelectedFile}
+                fileContent={fileContent}
+                selectedFileImpact={selectedFileImpact}
+                messages={messages}
+                setMessages={setMessages}
+                isChatLoading={isChatLoading}
+                setIsChatLoading={setIsChatLoading}
+              />
+            ) : codebaseInsights ? (
+          <ArchitectureInsights
+            codebaseInsights={codebaseInsights}
+            architectureSummary={architectureSummary}
+            isSummaryLoading={isSummaryLoading}
+            fetchArchitectureSummary={fetchArchitectureSummary}
+            snapshot={snapshot}
+            setSnapshot={setSnapshot}
+            setShowDiffModal={setShowDiffModal}
+            setIsGlobalChatOpen={setIsGlobalChatOpen}
+            rawNodes={rawNodes}
+            rawEdges={rawEdges}
+          />
         ) : null}
 
           </div>
@@ -1335,6 +953,62 @@ export default function App() {
                 }
               }}
             />
+          </div>
+        </div>
+      )}
+
+      {/* =====================================================
+          ARCHITECTURE DIFF MODAL
+          ===================================================== */}
+      {showDiffModal && architectureDiff && (
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10000 }}>
+          <div style={{ width: '500px', background: '#1a202c', borderRadius: '10px', border: '1px solid #4a5568', overflow: 'hidden', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' }}>
+            
+            <div style={{ padding: '15px 20px', background: '#2d3748', borderBottom: '1px solid #4a5568', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h2 style={{ margin: 0, fontSize: '16px', color: '#63b3ed' }}>⚖️ Architecture Comparison</h2>
+              <button onClick={() => setShowDiffModal(false)} style={{ background: 'none', border: 'none', color: '#a0aec0', cursor: 'pointer', fontSize: '16px' }}>✖</button>
+            </div>
+
+            <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              
+              {/* Health Score Delta */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#2d3748', padding: '15px', borderRadius: '8px' }}>
+                <div style={{ fontSize: '14px', color: '#a0aec0', textTransform: 'uppercase', letterSpacing: '1px' }}>Health Shift</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                  <span style={{ fontSize: '24px', fontWeight: 'bold', color: '#a0aec0' }}>{architectureDiff.prevHealth}</span>
+                  <span style={{ color: '#4a5568' }}>➡</span>
+                  <span style={{ fontSize: '24px', fontWeight: 'bold', color: architectureDiff.healthDelta >= 0 ? '#48bb78' : '#fc8181' }}>{architectureDiff.newHealth}</span>
+                  <span style={{ fontSize: '14px', fontWeight: 'bold', color: architectureDiff.healthDelta >= 0 ? '#48bb78' : '#fc8181' }}>
+                    ({architectureDiff.healthDelta > 0 ? '+' : ''}{architectureDiff.healthDelta})
+                  </span>
+                </div>
+              </div>
+
+              {/* Metrics Grid */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+                <div style={{ background: '#2d3748', padding: '15px', borderRadius: '8px', textAlign: 'center' }}>
+                  <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#63b3ed' }}>
+                    +{architectureDiff.addedFiles.length} / -{architectureDiff.removedFiles.length}
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#a0aec0', marginTop: '5px' }}>Files Changed</div>
+                </div>
+                
+                <div style={{ background: '#2d3748', padding: '15px', borderRadius: '8px', textAlign: 'center' }}>
+                  <div style={{ fontSize: '20px', fontWeight: 'bold', color: architectureDiff.dependenciesDelta > 0 ? '#fc8181' : '#48bb78' }}>
+                    {architectureDiff.dependenciesDelta > 0 ? '+' : ''}{architectureDiff.dependenciesDelta}
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#a0aec0', marginTop: '5px' }}>Dependencies</div>
+                </div>
+              </div>
+
+              {/* Warnings */}
+              {architectureDiff.newCycles > 0 && (
+                <div style={{ background: '#7b341e', padding: '12px', borderRadius: '8px', borderLeft: '4px solid #dd6b20', color: '#fff', fontSize: '13px' }}>
+                  <strong>⚠ Warning:</strong> This version introduced {architectureDiff.newCycles} new circular dependenc{architectureDiff.newCycles === 1 ? 'y' : 'ies'}.
+                </div>
+              )}
+
+            </div>
           </div>
         </div>
       )}
