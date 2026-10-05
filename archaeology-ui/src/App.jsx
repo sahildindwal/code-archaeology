@@ -199,7 +199,7 @@ export default function App() {
       });
   };
 
-  const handleGithubFetch = () => {
+ const handleGithubFetch = (url, branch) => {
     if (!url || !url.trim()) return;
 
     setLoading(true);

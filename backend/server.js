@@ -72,7 +72,7 @@ app.post('/api/upload', (req, res) => {
   }
 });
 
-// NEW: GitHub Repository Import Endpoint (With Branch Support)
+// NEW: GitHub Repository Import Endpoint (With Branch & Commit Support)
 app.post('/api/github', async (req, res) => {
   const { repoUrl, branch } = req.body;
   if (!repoUrl || !repoUrl.startsWith('https://github.com/')) {
@@ -88,20 +88,23 @@ app.post('/api/github', async (req, res) => {
     }
     fs.mkdirSync(workspaceRoot, { recursive: true });
 
-    // Use branch flag if provided, otherwise default clone
-    const cloneCmd = branch 
-      ? `git clone --branch ${branch} --single-branch ${repoUrl} ${targetDir}`
-      : `git clone ${repoUrl} ${targetDir}`;
-
+    // 1. Clone the base repository first
+    const cloneCmd = `git clone ${repoUrl} ${targetDir}`;
     console.log(`Executing: ${cloneCmd}`);
     await execPromise(cloneCmd);
+
+    // 2. If a specific branch or commit hash was selected, check it out
+    if (branch) {
+      console.log(`Checking out reference: ${branch}`);
+      await execPromise(`cd ${targetDir} && git checkout ${branch}`);
+    }
 
     const graphData = generateGraph(targetDir);
     res.json(graphData);
 
   } catch (error) {
-    console.error("Error cloning GitHub repo:", error);
-    res.status(500).json({ error: "Failed to process GitHub repository. Ensure the repo is public and the branch exists." });
+    console.error("Error processing GitHub repo:", error);
+    res.status(500).json({ error: "Failed to process GitHub repository. Ensure the repo is public." });
   }
 });
 
