@@ -8,7 +8,7 @@ Navigating massive, undocumented legacy codebases or evaluating complex hackatho
 
 ## ✨ Core Features
 
-* **🗺️ Interactive Dependency Graph:** Upload a local folder or paste a GitHub repository URL. The backend parses the Abstract Syntax Tree (AST) to map imports and exports, rendering a clean, interactive node-based architecture map.
+* **🗺️ Interactive Dependency Graph:** Upload a local folder or dynamically fetch specific branches and commits via the GitHub API. The backend parses the Abstract Syntax Tree (AST) to map imports and exports, rendering a clean, interactive node-based architecture map.
 * **💥 Blast Radius Analysis:** Click any file to see exactly how many downstream modules rely on it. It calculates the risk level (Low/Medium/High/Critical) of modifying that file using Breadth-First Search (BFS) traversal.
 * **🏥 Codebase Health Scoring:** Automatically runs diagnostics on your architecture, deducting points for structural flaws:
 * **Circular Dependencies:** Detected via Depth-First Search (DFS) recursion stacks.
@@ -27,13 +27,13 @@ Navigating massive, undocumented legacy codebases or evaluating complex hackatho
 
 ## 🛠️ Tech Stack
 
-**Frontend**
+**Frontend (Decoupled Client)**
 
 * **React + Vite:** Lightning-fast, modular UI architecture.
 * **React Flow & Dagre:** Physics engine and spatial layout algorithms for rendering the dependency graph.
 * **React Markdown:** For rendering rich AI responses and code blocks.
 
-**Backend**
+**Backend (Microservice)**
 
 * **Node.js & Express:** Handles asynchronous I/O, file system traversal, and GitHub repository cloning/checkouts.
 * **Tree-sitter:** High-performance, robust AST parser used to extract dependencies resiliently (ignoring commented-out code and handling varied import syntax).
@@ -43,7 +43,7 @@ Navigating massive, undocumented legacy codebases or evaluating complex hackatho
 
 ## ⚙️ How It Works (Under the Hood)
 
-1. **Ingestion:** The user provides a public GitHub URL (and selects a specific branch/commit via the GitHub REST API) or uploads a local directory.
+1. **Ingestion:** The user provides a public GitHub URL. The frontend hits the GitHub REST API to fetch available branches and recent commits. The user selects a target, and the backend dynamically clones and checks out that specific codebase state.
 2. **AST Parsing:** The Node.js backend filters out irrelevant directories (`node_modules`, `dist`) and uses Tree-sitter to build an Abstract Syntax Tree of the target source files.
 3. **Graph Construction:** Import statements are extracted and resolved to absolute paths. The system constructs a mathematical directed graph where files are nodes and imports are edges.
 4. **Algorithmic Analysis:**
@@ -55,7 +55,7 @@ Navigating massive, undocumented legacy codebases or evaluating complex hackatho
 
 ---
 
-## 🚀 Getting Started
+## 🚀 Getting Started (Local Development)
 
 ### Prerequisites
 
@@ -66,7 +66,7 @@ Navigating massive, undocumented legacy codebases or evaluating complex hackatho
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/yourusername/code-archaeology.git
+git clone https://github.com/sahildindwal/code-archaeology.git
 cd code-archaeology
 
 ```
@@ -104,7 +104,8 @@ npm install
 
 ```
 
-Create a `.env` file in the `frontend` directory:
+Create a `.env` file in the `frontend` directory.
+*(Note: For local development, point this to your local backend. In production, this is swapped to the independently deployed backend URL).*
 
 ```env
 VITE_API_URL=http://localhost:5000
@@ -117,6 +118,15 @@ Start the React development server:
 npm run dev
 
 ```
+
+---
+
+## ☁️ Deployment Architecture
+
+This project utilizes a decoupled architecture for maximum performance and scalability:
+
+* **Frontend:** Deployed as a static application on Render, ensuring instant load times and CDN edge caching.
+* **Backend:** Deployed as an independent web service on Render to securely handle heavy I/O operations, filesystem manipulations for git cloning, and API secret management.
 
 ---
 
